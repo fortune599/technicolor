@@ -3,8 +3,68 @@ from matrix import *
 from math import *
 from gmath import *
 
+import random
 
 def scanline_convert(polygons, i, screen, zbuffer):
+    color = [random.randrange(256), random.randrange(256), random.randrange(256)]#only way to get reliably dif colors
+    xvals = [polygons[i][0],polygons[i+1][0],polygons[i+2][0]]#triangles
+    yvals = [polygons[i][1],polygons[i+1][1],polygons[i+2][1]]
+    zvals = [polygons[i][2],polygons[i+1][2],polygons[i+2][2]]#this is already so much work
+    top = yvals.index(max(yvals))#gotta get them indices y'know?   
+    bot = yvals.index(min(yvals))
+    mid = 3 - (bot + top)
+    #im so tired
+    bx = xvals[bot]
+    by = yvals[bot]
+    bz = zvals[bot]
+    mx = xvals[mid]
+    my = yvals[mid]
+    mz = zvals[mid]
+    tx = xvals[top]
+    ty = yvals[top]
+    tz = zvals[top]
+    why = ty - by #whole y
+    thy = ty - my #top-half y
+    bhy = my - by #bottom-half y
+
+
+    if why == 0:
+        m1 = 0 #m for SLOPE
+        m1z = 0
+    else:
+        m1 = (tx - bx) / why #as in why does everything gotta be so complicated
+        m1z = (tz - bz) / why
+
+    if thy == 0:
+        m2 = 0
+        m2z = 0
+    else:
+        m2 = (tx - mx) / thy
+        m2z = (tz - mz) / thy
+
+    if bhy == 0:
+        m3 = 0
+        m3z = 0
+    else:
+        m3 = (mx - bx) / bhy
+        m3z = (mz - bz) / bhy
+        
+    ycur = int(by) #started from the bottom now we here
+ 
+    while ycur < my:
+        x0 = bx + (ycur - by) * m1
+        x1 = bx + (ycur - by) * m3
+        z0 = bz + (ycur - by) * m1z
+        z1 = bz + (ycur - by) * m3z
+        draw_line(int(x0),ycur,z0,int(x1),ycur,z1,screen,zbuffer,color)
+        ycur += 1
+    while ycur < ty:
+        x0 = bx + (ycur - by) * m1
+        x1 = mx + (ycur - my) * m2
+        z0 = bz + (ycur - by) * m1z
+        z1 = mz + (ycur - my) * m2z
+        draw_line(int(x0),ycur,z0,int(x1),ycur,z1,screen,zbuffer,color)
+        ycur += 1
     pass
 
 
@@ -24,7 +84,7 @@ def draw_polygons( matrix, screen, zbuffer, color ):
         normal = calculate_normal(matrix, point)[:]
         #print normal
         if normal[2] > 0:
-            #scanline_convert(matrix, point, screen, zbuffer)            
+            scanline_convert(matrix, point, screen, zbuffer)            
             draw_line( int(matrix[point][0]),
                        int(matrix[point][1]),
                        matrix[point][2],
@@ -273,6 +333,7 @@ def draw_line( x0, y0, z0, x1, y1, z1, screen, zbuffer, color ):
     z = z0
     A = 2 * (y1 - y0)
     B = -2 * (x1 - x0)
+    C = float(z1 - z0)
     wide = False
     tall = False
 
@@ -284,6 +345,10 @@ def draw_line( x0, y0, z0, x1, y1, z1, screen, zbuffer, color ):
         dy_east = 0
         d_east = A
         distance = x1 - x
+        if distance != 0:
+            dz_direction = C/distance
+        else:
+            dz_direction = 0
         if ( A > 0 ): #octant 1
             d = A + B/2
             dy_northeast = 1
@@ -298,6 +363,10 @@ def draw_line( x0, y0, z0, x1, y1, z1, screen, zbuffer, color ):
         dx_east = 0
         dx_northeast = 1
         distance = abs(y1 - y)
+        if distance != 0:
+            dz_direction = C/distance
+        else:
+            dz_direction = 0
         if ( A > 0 ): #octant 2
             d = A/2 + B
             dy_east = dy_northeast = 1
@@ -324,6 +393,7 @@ def draw_line( x0, y0, z0, x1, y1, z1, screen, zbuffer, color ):
             x+= dx_east
             y+= dy_east
             d+= d_east
+        z+= dz_direction
         loop_start+= 1
 
     plot( screen, zbuffer, color, x, y, z )
